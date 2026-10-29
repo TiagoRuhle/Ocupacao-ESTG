@@ -4,6 +4,15 @@
 
 Sistema de Extração, Transformação e Carregamento (ETL) para um Data Warehouse dimensional que suporta a análise de ocupação de espaços letivos da Escola Superior de Tecnologia e Gestão (ESTG). O pipeline processa dados brutos de agendamentos e assiduidade académica, materializando-os num modelo Star Schema em MySQL. Uma camada de Business Intelligence baseada em Streamlit disponibiliza visualizações interativas sobre os dados carregados.
 
+## Enquadramento e Autores
+
+Projeto realizado no âmbito do **Projeto Final de Curso** da Licenciatura em Engenharia Informática da Escola Superior de Tecnologia e Gestão (ESTG), Politécnico de Leiria.
+
+**Autores:**
+
+- Tiago
+- André
+
 ---
 
 ## Pré-requisitos
