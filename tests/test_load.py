@@ -25,9 +25,10 @@ from sqlalchemy import create_engine, text
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'processo_etl'))
 
 from load import DataLoader
+import _db_teste as db_teste
 
 
-TEST_DB_URL = "mysql+pymysql://root:@localhost:3306/dw_ocupacao_tests?charset=utf8mb4"
+TEST_DB_URL = db_teste.TEST_DB_URL
 _test_engine = create_engine(TEST_DB_URL, future=True)
 
 
@@ -35,11 +36,11 @@ _test_engine = create_engine(TEST_DB_URL, future=True)
 def loader():
     # DataLoader apontado para a BD de teste
     return DataLoader(
-        host="localhost",
-        user="root",
-        password="",
-        db_name="dw_ocupacao_tests",
-        port="3306",
+        host=db_teste.HOST,
+        user=db_teste.USER,
+        password=db_teste.PASSWORD,
+        db_name=db_teste.DB_NAME,
+        port=str(db_teste.PORT),
     )
 
 

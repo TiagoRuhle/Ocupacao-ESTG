@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,7 +18,10 @@ def get_engine():
     host     = os.getenv('DB_HOST', 'localhost')
     port     = os.getenv('DB_PORT', '3306')
     db_name  = os.getenv('DB_NAME', 'dw_ocupacao')
-    return create_engine(f"mysql+pymysql://{user}:{password}@{host}:{port}/{db_name}", future=True)
+    # URL.create escapa caracteres especiais na password (@, :, /, ...)
+    url = URL.create("mysql+pymysql", username=user, password=password,
+                     host=host, port=int(port), database=db_name)
+    return create_engine(url, future=True)
 
 
 def migrate_schema(engine):

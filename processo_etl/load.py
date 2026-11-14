@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import logging
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL
 from typing import List
 from datetime import datetime
 from dotenv import load_dotenv
@@ -20,7 +21,15 @@ class DataLoader:
         self.password = password or os.getenv('DB_PASSWORD', '')
         self.db_name  = db_name  or os.getenv('DB_NAME', 'dw_ocupacao')
         self.port     = port     or os.getenv('DB_PORT', '3306')
-        self.connection_string = f"mysql+pymysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.db_name}"
+        # URL.create escapa caracteres especiais na password (@, :, /, ...)
+        self.connection_string = URL.create(
+            "mysql+pymysql",
+            username=self.user,
+            password=self.password,
+            host=self.host,
+            port=int(self.port),
+            database=self.db_name,
+        )
         self.engine = create_engine(self.connection_string, future=True)
         self.logger = logging.getLogger(__name__)
 
