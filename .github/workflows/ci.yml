@@ -20,4 +20,4 @@ jobs:
       - name: Testes (sem base de dados)
         run: >
           pytest tests/test_extract.py tests/test_transform.py tests/test_transforms.py
-          tests/test_plots.py tests/test_auth.py -q
+          tests/test_plots.py tests/test_auth.py tests/test_utils_formato.py -q
