@@ -19,5 +19,8 @@ __pycache__/
 docs/*
 !docs/screenshots/
 
-# Include the schema file 
-!database/schema_dw.sql.venv/
+# Include the schema file
+!database/schema_dw.sql
+
+# Ambiente virtual
+.venv/
