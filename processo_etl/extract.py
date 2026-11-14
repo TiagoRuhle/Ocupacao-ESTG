@@ -89,6 +89,10 @@ class DataExtractor:
 
                 for row in rows:
                     row = row.strip('()')
+                    # Remove as quebras de linha escapadas do SQL (barra + r, barra + n) antes do
+                    # csv.reader: com escapechar a barra ele apagava só a barra e o "r" ficava
+                    # colado ao texto (ex.: um nome "Vieira" seguido de barra + r virava "Vieirar").
+                    row = row.replace('\\r', '').replace('\\n', ' ')
                     reader = csv.reader(
                         StringIO(row),
                         quotechar="'",

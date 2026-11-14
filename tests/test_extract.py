@@ -194,6 +194,14 @@ class TestExtractSqlDump:
         df = extractor.extract_sql_dump("test.sql", "ocupacao", ["id", "espaco", "data"])
         assert list(df.columns) == ["id", "espaco", "data"]
 
+    def test_quebra_de_linha_escapada_nao_deixa_r_no_fim(self, extractor, tmp_data_dir):
+        # No dump, o texto pode terminar com barra + r (quebra de linha do Windows escapada).
+        # Antes, o nome ficava "Ana Vieirar".
+        sql = self._make_sql("turnos", ["'001', 'Ana Vieira\\r'", "'002', 'Rui Monteiro\\r\\n'"])
+        write_file(tmp_data_dir / "test.sql", sql)
+        df = extractor.extract_sql_dump("test.sql", "turnos", ["id", "pessoa"])
+        assert list(df["pessoa"]) == ["Ana Vieira", "Rui Monteiro"]
+
     def test_ficheiro_inexistente_devolve_none(self, extractor):
         result = extractor.extract_sql_dump("nao_existe.sql", "tabela", ["col"])
         assert result is None
