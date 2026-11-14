@@ -7,7 +7,7 @@ from view._helpers import load_e_preparar
 from queries import get_contagem_salas_filtradas, get_departamentos
 from transforms import build_dados_heatmap, apply_filtros_post
 from components import render_kpi, render_spacer, render_cabecalho_seccao
-from utils import fmt_duracao_long
+from utils import fmt_duracao_long, fmt_int
 from config import LAB_CATEGORY, PLOTLY_CONFIG, Omisso
 from plots import (
     chart_heatmap_ocupacao, chart_periodo_dia,
@@ -68,11 +68,11 @@ class LaboratoriosProfile(BaseProfile):
         labs_livres = max(total_labs - labs_unicos, 0)
 
         k1, k2, k3, k4, k5 = st.columns(5)
-        with k1: render_kpi("Sessões",             f"{total_ocup:,}", "🔬")
+        with k1: render_kpi("Sessões",             f"{fmt_int(total_ocup)}", "🔬")
         with k2: render_kpi("Laboratórios Livres", str(labs_livres),  "🟢")
         with k3: render_kpi("Laboratórios Totais", str(total_labs),   "🖥️")
-        with k4: render_kpi("Média Presenças",     str(avg_pres),     "👥")
-        with k5: render_kpi("Sessões Vazias",      f"{ghost_count:,}", "👻", GHOST)
+        with k4: render_kpi("Média Presenças",     f"{avg_pres:.1f}".replace(".", ","), "👥")
+        with k5: render_kpi("Sessões Vazias",      f"{fmt_int(ghost_count)}", "👻", GHOST)
 
         render_spacer(1.2)
         col_heat, col_period = st.columns([2, 1])

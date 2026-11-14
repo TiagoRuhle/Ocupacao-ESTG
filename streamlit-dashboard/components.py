@@ -2,7 +2,7 @@ from __future__ import annotations
 import streamlit as st
 import pandas as pd
 from config import COLORS, DIMENSION_COVERAGE_COLS, Omisso
-from utils import pct
+from utils import pct, fmt_int
 
 
 def render_kpi(label: str, value: str, icon: str = "", tooltip: str = "") -> None:
@@ -31,16 +31,16 @@ def render_linha_kpi_salas(kpi: dict, total_rooms: int) -> None:
     # Linha de KPIs de salas (ocupadas / livres / total) — partilhada entre várias views
     espacos_livres = max(total_rooms - kpi["espacos_ocupados"], 0)
     c1, c2, c3 = st.columns(3)
-    with c1: render_kpi("Salas Ocupadas", f"{kpi['espacos_ocupados']:,}", "🏢")
-    with c2: render_kpi("Salas Livres",   f"{espacos_livres:,}",          "🟢")
-    with c3: render_kpi("Salas Totais",   f"{total_rooms:,}",             "📐")
+    with c1: render_kpi("Salas Ocupadas", f"{fmt_int(kpi['espacos_ocupados'])}", "🏢")
+    with c2: render_kpi("Salas Livres",   f"{fmt_int(espacos_livres)}",          "🟢")
+    with c3: render_kpi("Salas Totais",   f"{fmt_int(total_rooms)}",             "📐")
 
 
 def render_cartao_qualidade(label: str, value: int, color: str) -> None:
     st.markdown(f"""
     <div style="background:{color};border-radius:12px;padding:1rem 1.2rem;margin-bottom:0.6rem;">
         <span style="color:#475569;font-size:0.78rem;font-weight:500;">{label}</span>
-        <div style="font-size:1.6rem;font-weight:700;color:#1B2139;margin-top:2px;">{value:,}</div>
+        <div style="font-size:1.6rem;font-weight:700;color:#1B2139;margin-top:2px;">{fmt_int(value)}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -63,9 +63,9 @@ def render_cobertura_dimensao(df: pd.DataFrame) -> None:
         filled = (df[col] != Omisso.ND).sum()
         coverage.append({
             "Dimensão":    label,
-            "Preenchidos": filled,
-            "Total":       total,
-            "Cobertura":   f"{pct(filled, total)}%",
+            "Preenchidos": fmt_int(filled),
+            "Total":       fmt_int(total),
+            "Cobertura":   f"{pct(filled, total)}%".replace(".", ","),
         })
     if coverage:
         st.dataframe(pd.DataFrame(coverage), use_container_width=True, hide_index=True)

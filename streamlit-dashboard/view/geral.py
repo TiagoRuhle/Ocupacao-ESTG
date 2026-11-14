@@ -6,7 +6,7 @@ from view._helpers import load_e_preparar
 from queries import get_contagem_salas_filtradas
 from transforms import compute_kpis_gerais, build_dados_heatmap
 from components import render_kpi, render_spacer, render_cabecalho_seccao
-from utils import fmt_duracao
+from utils import fmt_duracao, fmt_int, fmt_pct
 from plots import (
     chart_ocupacao_tempo, chart_ocupacao_semana, chart_ocupacao_edificio,
     chart_heatmap_ocupacao, chart_top_espacos, chart_bottom_espacos,
@@ -33,12 +33,12 @@ class GeralProfile(BaseProfile):
 
         # KPIs
         k1, k2, k3, k4, k5, k6 = st.columns(6)
-        with k1: render_kpi("Salas Ocupadas",   f"{kpi['espacos_ocupados']:,}", "🏢")
-        with k2: render_kpi("Salas Livres",     f"{max(total_rooms - kpi['espacos_ocupados'], 0):,}", "🟢")
-        with k3: render_kpi("Salas Totais",     f"{total_rooms:,}", "📐")
-        with k4: render_kpi("Taxa Utilização",  f"{kpi['taxa_ocup']}%", "📊", TAXA_UTILIZACAO)
+        with k1: render_kpi("Salas Ocupadas",   f"{fmt_int(kpi['espacos_ocupados'])}", "🏢")
+        with k2: render_kpi("Salas Livres",     f"{fmt_int(max(total_rooms - kpi['espacos_ocupados'], 0))}", "🟢")
+        with k3: render_kpi("Salas Totais",     f"{fmt_int(total_rooms)}", "📐")
+        with k4: render_kpi("Taxa Utilização",  fmt_pct(kpi['taxa_ocup']), "📊", TAXA_UTILIZACAO)
         with k5: render_kpi("Tempo Médio",      fmt_duracao(kpi["avg_min"]), "⏱️", TEMPO_MEDIO)
-        with k6: render_kpi("Sessões Vazias %", f"{kpi['ghost_pct']}%", "👻", GHOST)
+        with k6: render_kpi("Sessões Vazias %", fmt_pct(kpi['ghost_pct']), "👻", GHOST)
 
         render_spacer(1.2)
 
@@ -73,6 +73,7 @@ class GeralProfile(BaseProfile):
             st.plotly_chart(chart_top_espacos(df, top_n), use_container_width=True, key="chart_top", config= PLOTLY_CONFIG)
         with col_bottom:
             st.plotly_chart(chart_bottom_espacos(df, top_n), use_container_width=True, key="chart_bottom", config= PLOTLY_CONFIG)
+            self._subtitle("Só inclui espaços com pelo menos uma ocupação. Os espaços sem nenhuma estão na página Salas Vazias.")
 
         render_spacer()
 

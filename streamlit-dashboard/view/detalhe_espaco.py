@@ -5,7 +5,7 @@ from view.base import BaseProfile
 from queries import get_dados_detalhe_espaco, get_espacos
 from transforms import normalizar_dataframe
 from components import render_kpi, render_spacer, render_cabecalho_seccao
-from utils import clamp, pct
+from utils import clamp, pct, fmt_int, fmt_pct
 from config import DAILY_CAPACITY_MINUTES, PLOTLY_CONFIG, Omisso, MESES_PT
 from plots import chart_heatmap_espaco_unico, chart_calendario_mensal
 from calendar_chart import render_calendario_horario
@@ -49,10 +49,10 @@ class DetalheEspacoProfile(BaseProfile):
         util_rate      = clamp(pct(df["Duracao_Minutos"].sum(), unique_days * DAILY_CAPACITY_MINUTES))
 
         k1, k2, k3, k4 = st.columns(4)
-        with k1: render_kpi("Horas Agendadas", f"{total_hours:,}h", "⏱️")
-        with k2: render_kpi("Média Presenças", str(avg_class_size), "👥")
-        with k3: render_kpi("Taxa Utilização", f"{util_rate}%", "📊", TAXA_UTILIZACAO)
-        with k4: render_kpi("Sessões Vazias",  f"{ghost_count:,}", "👻", GHOST)
+        with k1: render_kpi("Horas Agendadas", f"{fmt_int(total_hours)}h", "⏱️")
+        with k2: render_kpi("Média Presenças", f"{avg_class_size:.1f}".replace(".", ","), "👥")
+        with k3: render_kpi("Taxa Utilização", fmt_pct(util_rate), "📊", TAXA_UTILIZACAO)
+        with k4: render_kpi("Sessões Vazias",  f"{fmt_int(ghost_count)}", "👻", GHOST)
 
         render_spacer(1.2)
         render_cabecalho_seccao("Ocupação Semanal e Calendário Mensal")

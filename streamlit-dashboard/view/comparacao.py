@@ -6,9 +6,9 @@ from view.base import BaseProfile
 from queries import get_dados_detalhe_espaco, get_espacos
 from transforms import normalizar_dataframe, apply_filtros_post
 from components import render_spacer, render_cabecalho_seccao
-from utils import clamp, pct
+from utils import clamp, pct, fmt_int, fmt_pct
 from config import DAILY_CAPACITY_MINUTES, PLOTLY_CONFIG
-from plots import chart_top_espacos, chart_tendencia_comparacao
+from plots import chart_sessoes_por_sala, chart_tendencia_comparacao
 
 
 class ComparacaoProfile(BaseProfile):
@@ -58,15 +58,21 @@ class ComparacaoProfile(BaseProfile):
             {
                 "Sala":            name,
                 "Sessões":         len(rd),
-                "Horas":           int(rd["Duracao_Minutos"].sum() / 60),
-                "Média Presenças": round(rd["Numero_Presencas"].mean(), 1),
-                "Ghost %":         round(pct((rd["Numero_Presencas"] == 0).sum(), len(rd)), 1),
+                "Horas":           rd["Duracao_Minutos"].sum() / 60,
+                "Média Presenças": rd["Numero_Presencas"].mean(),
+                "Sessões vazias":  pct((rd["Numero_Presencas"] == 0).sum(), len(rd)),
                 "Tx. Utilização":  clamp(pct(rd["Duracao_Minutos"].sum(),
                                              rd["DataCompleta"].nunique() * DAILY_CAPACITY_MINUTES)),
             }
             for name, rd in rooms_data.items()
         ]
         comp_df = pd.DataFrame(rows).sort_values("Sessões", ascending=False)
+        # Números à portuguesa (o st.dataframe só formata com ponto decimal)
+        comp_df["Sessões"]         = comp_df["Sessões"].apply(fmt_int)
+        comp_df["Horas"]           = comp_df["Horas"].apply(lambda h: f"{fmt_int(h)} h")
+        comp_df["Média Presenças"] = comp_df["Média Presenças"].apply(lambda v: f"{v:.1f}".replace(".", ","))
+        comp_df["Sessões vazias"]  = comp_df["Sessões vazias"].apply(fmt_pct)
+        comp_df["Tx. Utilização"]  = comp_df["Tx. Utilização"].apply(fmt_pct)
         st.dataframe(comp_df, use_container_width=True, hide_index=True)
 
         render_spacer()
@@ -77,12 +83,12 @@ class ComparacaoProfile(BaseProfile):
             ignore_index=True,
         )
         st.plotly_chart(
-            chart_top_espacos(combined, top_n=len(rooms_data)),
+            chart_sessoes_por_sala(combined),
             use_container_width=True, key="chart_compare_bar", config= PLOTLY_CONFIG
         )
 
         render_spacer()
-        render_cabecalho_seccao("Tendência Diária Comparativa")
+        render_cabecalho_seccao("Tendência Semanal Comparativa")
         st.plotly_chart(
             chart_tendencia_comparacao(rooms_data),
             use_container_width=True, key="chart_compare_trend", config= PLOTLY_CONFIG

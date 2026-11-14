@@ -526,55 +526,92 @@ def get_salas_livres_por_intervalo(
 def get_metricas_qualidade_etl(
     ano_letivo: str | None = None,
     semestre: int | None = None,
-) -> dict[str, int]:
+) -> dict:
+    # Completude dos registos carregados.
+    # Um registo está "incompleto" se lhe falta um dado que devia ter:
+    #   - espaço ou edifício, UC, responsável;
+    #   - ciclo de estudos, mas só nas aulas — as reservas administrativas
+    #     (UC = SEM_UNIDADE) não têm ciclo por natureza e não contam como falta.
+    # O curso não entra: o dicionário de cursos não fez parte dos dados fornecidos,
+    # por isso a falta de curso não é um problema de qualidade dos registos.
+    # Sessões sem presenças e horários invulgares são alertas operacionais, não falta de dados,
+    # por isso ficam de fora desta métrica (têm KPIs próprios).
+    vazio = {"total": 0, "completos": 0, "incompletos": 0, "reservas": 0, "motivos": {}}
     conn = get_connection()
     try:
         where = "WHERE 1=1"
-        params = []
+        params: list = []
         if ano_letivo:
             where += " AND d.Ano_Escolar = %s"; params.append(ano_letivo)
         if semestre:
             where += " AND d.Semestre = %s";    params.append(semestre)
 
-        quality_params = [
-            Omisso.ND, Omisso.ND,
-            Omisso.ND, Omisso.SEM_UNIDADE,
-            Omisso.ND, Omisso.ND, Omisso.ND,
-            Omisso.ND, Omisso.INDEFINIDO,
-        ]
-        sql = f"""
+        nd, sem_uc, indef = Omisso.ND, Omisso.SEM_UNIDADE, Omisso.INDEFINIDO
+        # LEFT JOIN sem correspondência conta como N/D
+        base = f"""
             SELECT
-                COUNT(*) AS total,
-                SUM(CASE
-                    WHEN e.Edificio = %s
-                      OR e.Nome_Espaco = %s
-                      OR uc.Designacao_UC IN (%s, %s)
-                      OR uc.Ciclo_Estudo = %s
-                      OR c.Nome_Curso = %s
-                      OR c.Codigo_Curso = %s
-                      OR r.Docente_Responsavel IN (%s, %s)
-                      OR h1.Hora < 8
-                    THEN 1 ELSE 0
-                END) AS errors
+                COALESCE(e.Edificio, %s)            AS edificio,
+                COALESCE(e.Nome_Espaco, %s)         AS espaco,
+                COALESCE(uc.Designacao_UC, %s)      AS uc,
+                COALESCE(uc.Ciclo_Estudo, %s)       AS ciclo,
+                COALESCE(c.Nome_Curso, %s)          AS curso,
+                COALESCE(r.Docente_Responsavel, %s) AS resp
             FROM Facto_Ocupacao f
-            JOIN Dim_Data d                     ON f.SK_Data              = d.SK_Data
-            JOIN Dim_Hora h1                    ON f.SK_Hora_Inicio       = h1.SK_Hora
+            JOIN Dim_Data d                     ON f.SK_Data               = d.SK_Data
             LEFT JOIN Dim_Espaco e              ON f.SK_Espaco             = e.SK_Espaco
             LEFT JOIN Dim_Unidade_Curricular uc ON f.SK_Unidade_Curricular = uc.SK_Unidade_Curricular
             LEFT JOIN Dim_Curso c               ON f.SK_Curso              = c.SK_Curso
             LEFT JOIN Dim_Responsavel r         ON f.SK_Responsavel        = r.SK_Responsavel
             {where}
         """
-        df = _leitura_segura(sql, conn, quality_params + params)
+        base_params = [nd] * 6 + params
+
+        cond_espaco = "(t.edificio = %s OR t.espaco = %s)"
+        cond_uc     = "(t.uc = %s)"
+        cond_ciclo  = "(t.uc <> %s AND t.ciclo = %s)"
+        cond_resp   = "(t.resp IN (%s, %s))"
+        p_espaco, p_uc, p_ciclo, p_resp = [nd, nd], [nd], [sem_uc, nd], [nd, indef]
+
+        sql = f"""
+            SELECT
+                COUNT(*) AS total,
+                COALESCE(SUM(CASE WHEN {cond_espaco} OR {cond_uc}
+                                    OR {cond_ciclo} OR {cond_resp} THEN 1 ELSE 0 END), 0) AS incompletos,
+                COALESCE(SUM(CASE WHEN {cond_espaco} THEN 1 ELSE 0 END), 0) AS espaco_nd,
+                COALESCE(SUM(CASE WHEN {cond_uc}     THEN 1 ELSE 0 END), 0) AS uc_nd,
+                COALESCE(SUM(CASE WHEN {cond_ciclo}  THEN 1 ELSE 0 END), 0) AS ciclo_nd,
+                COALESCE(SUM(CASE WHEN {cond_resp}   THEN 1 ELSE 0 END), 0) AS resp_nd,
+                COALESCE(SUM(CASE WHEN t.uc = %s     THEN 1 ELSE 0 END), 0) AS reservas
+            FROM ({base}) AS t
+        """
+        sql_params = (
+            p_espaco + p_uc + p_ciclo + p_resp      # incompletos
+            + p_espaco + p_uc + p_ciclo + p_resp    # um motivo de cada vez
+            + [sem_uc]                                        # reservas
+            + base_params
+        )
+        df = _leitura_segura(sql, conn, sql_params)
         if df.empty:
-            return {"total": 0, "valid": 0, "errors": 0}
-        total  = int(df.iloc[0]["total"])
-        errors = int(df.iloc[0]["errors"] or 0)
-        return {"total": total, "valid": total - errors, "errors": errors}
+            return vazio
+        row = df.iloc[0]
+        total       = int(row["total"] or 0)
+        incompletos = int(row["incompletos"] or 0)
+        return {
+            "total":       total,
+            "completos":   total - incompletos,
+            "incompletos": incompletos,
+            "reservas":    int(row["reservas"] or 0),
+            "motivos": {
+                "Espaço ou edifício em falta":        int(row["espaco_nd"] or 0),
+                "UC em falta":                        int(row["uc_nd"] or 0),
+                "Ciclo de estudos em falta (aulas)":  int(row["ciclo_nd"] or 0),
+                "Responsável indefinido":             int(row["resp_nd"] or 0),
+            },
+        }
     except pymysql.Error as exc:
         logger.exception("ETL metrics failed: %s", exc)
         st.error(f"Erro ao carregar métricas ETL: {exc}")
-        return {"total": 0, "valid": 0, "errors": 0}
+        return vazio
     finally:
         conn.close()
 
@@ -603,7 +640,7 @@ def get_contagem_registos_nao_mapeados(
         "Curso Sem Mapeamento": (
             f"SELECT COUNT(*) FROM Facto_Ocupacao f {period_join} "
             f"JOIN Dim_Curso c ON f.SK_Curso = c.SK_Curso "
-            f"WHERE c.Nome_Curso = %s OR c.Codigo_Curso = %s{period_where}",
+            f"WHERE (c.Nome_Curso = %s OR c.Codigo_Curso = %s){period_where}",
             [Omisso.ND, Omisso.ND] + period_params,
         ),
         "Responsável Indefinido": (
@@ -637,6 +674,20 @@ def get_contagem_registos_nao_mapeados(
         conn.close()
     return result
 
+_MESES_CURTOS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+
+def _etiqueta_mes_letivo(ano_escolar: object, mes: object) -> str:
+    # "2025/2026" + 10 -> "Out 2025"; "2025/2026" + 2 -> "Fev 2026"
+    mes = int(mes)
+    partes = str(ano_escolar).split("/")
+    try:
+        ano = int(partes[0]) if mes >= 9 else int(partes[-1])
+    except ValueError:
+        return f"{_MESES_CURTOS[mes - 1]} {ano_escolar}"
+    return f"{_MESES_CURTOS[mes - 1]} {ano}"
+
+
 @st.cache_data(ttl=CACHE_TTL_COLD)
 def get_tendencia_sessoes_fantasma(
     ano_escolar: str | None = None,
@@ -656,10 +707,12 @@ def get_tendencia_sessoes_fantasma(
             sql += " AND d.Ano_Escolar = %s"; params.append(ano_escolar)
         if semestre is not None:
             sql += " AND d.Semestre = %s"; params.append(semestre)
-        sql += " GROUP BY d.Ano_Escolar, d.Mes ORDER BY d.Ano_Escolar, d.Mes"
+        # Ordem do ano letivo: setembro a agosto (e não janeiro a dezembro)
+        sql += (" GROUP BY d.Ano_Escolar, d.Mes "
+                "ORDER BY d.Ano_Escolar, CASE WHEN d.Mes >= 9 THEN d.Mes - 9 ELSE d.Mes + 3 END")
         df = _leitura_segura(sql, conn, params)
         if not df.empty:
-            df["Periodo"] = df["Ano_Escolar"].astype(str) + " - Mês " + df["Mes"].astype(str)
+            df["Periodo"] = df.apply(lambda r: _etiqueta_mes_letivo(r["Ano_Escolar"], r["Mes"]), axis=1)
         return df
     finally:
         conn.close()
@@ -672,7 +725,7 @@ def get_anomalias_brutas(
     semestre: int | None = None,
     tipo_anomalia: str | None = None,
 ) -> pd.DataFrame:
-    # tipo_anomalia restringe a UMA categoria: "ghost", "uc", "curso", "resp" ou "hora".
+    # tipo_anomalia restringe a UMA categoria: "ghost", "uc", "curso", "uc_curso", "resp", "hora" ou "incompleto".
     # Se None, devolve qualquer registo com pelo menos uma anomalia (comportamento original).
     conn = get_connection()
     try:
@@ -710,6 +763,11 @@ def get_anomalias_brutas(
             "uc_curso": "uc.Designacao_UC IN (%s, %s) OR c.Nome_Curso = %s",
             "resp":     "r.Docente_Responsavel IN (%s, %s)",
             "hora":     "h1.Hora < 8",
+            "incompleto": (
+                "e.Edificio = %s OR e.Nome_Espaco = %s OR uc.Designacao_UC = %s "
+                "OR (uc.Designacao_UC <> %s AND uc.Ciclo_Estudo = %s) "
+                "OR r.Docente_Responsavel IN (%s, %s)"
+            ),
         }
         _params_unicos = {
             "ghost":    [],
@@ -718,6 +776,11 @@ def get_anomalias_brutas(
             "uc_curso": [Omisso.ND, Omisso.SEM_UNIDADE, Omisso.ND],
             "resp":     [Omisso.ND, Omisso.INDEFINIDO],
             "hora":     [],
+            "incompleto": [
+                Omisso.ND, Omisso.ND, Omisso.ND,
+                Omisso.SEM_UNIDADE, Omisso.ND,
+                Omisso.ND, Omisso.INDEFINIDO,
+            ],
         }
         if tipo_anomalia and tipo_anomalia in _condicoes_unicas:
             sql = sql.format(condicao=_condicoes_unicas[tipo_anomalia])
@@ -730,7 +793,6 @@ def get_anomalias_brutas(
             sql = sql.format(condicao=(
                 "f.Numero_Presencas = 0 "
                 "OR uc.Designacao_UC IN (%s, %s) "
-                "OR c.Nome_Curso = %s "
                 "OR r.Docente_Responsavel IN (%s, %s) "
                 "OR h1.Hora < 8"
             ))
@@ -739,7 +801,6 @@ def get_anomalias_brutas(
                 Omisso.ND,
                 Omisso.ND, Omisso.INDEFINIDO,
                 Omisso.ND, Omisso.SEM_UNIDADE,
-                Omisso.ND,
                 Omisso.ND, Omisso.INDEFINIDO,
             ]
         if ano_letivo:

@@ -9,8 +9,10 @@ from queries import (
 )
 from transforms import normalizar_dataframe, combine_flags_anomalia
 from components import render_kpi, render_spacer, render_cabecalho_seccao, render_cobertura_dimensao
-from plots import chart_tendencia_anomalias
+from plots import chart_tendencia_anomalias, chart_motivos_qualidade
 from config import PLOTLY_CONFIG
+from utils import fmt_int, fmt_pct, pct
+from view.tooltips import COMPLETUDE, DADOS_EM_FALTA, RESERVAS, GHOST_TOTAL, HORARIO_INVULGAR
 
 
 class QualidadeProfile(BaseProfile):
@@ -33,29 +35,32 @@ class QualidadeProfile(BaseProfile):
             semestre=semestre,
         )
         total_ghost = unmapped.get("Ghost Sessions (0 Presenças)", 0)
-        total_uc    = unmapped.get("UC Sem Mapeamento", 0)
-        total_curso = unmapped.get("Curso Sem Mapeamento", 0)
         total_hora  = unmapped.get("Horário Invulgar (00h-08h)", 0)
-        # Percentagem de registos sem erros de qualidade
-        pct_quality = round(metrics["valid"] / max(metrics["total"], 1) * 100, 1)
+        total       = metrics["total"]
+        completude  = pct(metrics["completos"], total)
 
-        k1, k2, k3, k4, k5, k6, k7 = st.columns(7)
-        with k1: render_kpi("Total Carregados", f"{metrics['total']:,}", "📦")
-        with k2: render_kpi("Válidos",          f"{metrics['valid']:,}", "✅")
-        with k3: render_kpi("Com Erros",        f"{metrics['errors']:,}", "⚠️")
-        with k4: render_kpi("Qualidade",        f"{pct_quality}%", "🎯")
+        k1, k2, k3, k4, k5, k6 = st.columns(6)
+        with k1: render_kpi("Registos carregados", fmt_int(total), "📦")
+        with k2: render_kpi("Completude", fmt_pct(completude), "✅", COMPLETUDE)
+        with k3:
+            render_kpi("Com dados em falta", fmt_int(metrics["incompletos"]), "🧩", DADOS_EM_FALTA)
+            if st.button("🔍 Ver registos", key="btn_filtro_incompleto", use_container_width=True):
+                st.session_state["qualidade_filtro_tipo"] = "incompleto"
+        with k4: render_kpi("Reservas sem UC", fmt_int(metrics["reservas"]), "🗓️", RESERVAS)
         with k5:
-            render_kpi("Ghost Sessions", f"{total_ghost:,}", "👻")
+            render_kpi("Sessões sem presenças", fmt_int(total_ghost), "👻", GHOST_TOTAL)
             if st.button("🔍 Ver registos", key="btn_filtro_ghost", use_container_width=True):
                 st.session_state["qualidade_filtro_tipo"] = "ghost"
         with k6:
-            render_kpi("UC/Curso N/D", f"{total_uc + total_curso:,}", "🚫")
-            if st.button("🔍 Ver registos", key="btn_filtro_ucCurso", use_container_width=True):
-                st.session_state["qualidade_filtro_tipo"] = "uc_curso"
-        with k7:
-            render_kpi("Horário Invulgar", f"{total_hora:,}", "🌙")
+            render_kpi("Horário invulgar", fmt_int(total_hora), "🌙", HORARIO_INVULGAR)
             if st.button("🔍 Ver registos", key="btn_filtro_hora", use_container_width=True):
                 st.session_state["qualidade_filtro_tipo"] = "hora"
+
+        render_spacer(1.2)
+        render_cabecalho_seccao("Porque é que há registos com dados em falta?")
+        self._subtitle("Um registo pode ter mais do que um motivo. A percentagem é sobre o total de registos carregados.")
+        st.plotly_chart(chart_motivos_qualidade(metrics["motivos"], total),
+                        use_container_width=True, key="chart_motivos", config=PLOTLY_CONFIG)
 
         render_spacer(1.2)
         render_cabecalho_seccao("Evolução de Anomalias")
@@ -77,7 +82,8 @@ class QualidadeProfile(BaseProfile):
 
         filtro_tipo = st.session_state.get("qualidade_filtro_tipo")
         _labels_filtro = {
-            "ghost":    "👻 Ghost Sessions (0 presenças)",
+            "incompleto": "🧩 Registos com dados em falta",
+            "ghost":    "👻 Sessões sem presenças",
             "uc_curso": "🚫 UC / Curso sem mapeamento",
             "hora":     "🌙 Horário Invulgar (00h-08h)",
         }
@@ -91,8 +97,8 @@ class QualidadeProfile(BaseProfile):
                     st.rerun()
         else:
             self._subtitle(
-                "Últimos registos com problemas de qualidade — ghost sessions, "
-                "UC sem mapeamento, curso N/D, responsável indefinido ou horário invulgar (00h-08h). "
+                "Últimos registos com algum alerta — sessões sem presenças, "
+                "UC sem mapeamento, responsável indefinido ou horário invulgar (00h-08h). "
                 "Usa os botões \"🔍 Ver registos\" nos KPI's acima para filtrar por tipo."
             )
 
@@ -117,7 +123,7 @@ class QualidadeProfile(BaseProfile):
         # Só mostra colunas que existam no DataFrame — evita KeyError se alguma estiver ausente
         audit_cols = [c for c in [
             "Data", "DiaSemana", "Início", "Fim", "Edificio", "Nome_Espaco",
-            "Designacao_UC", "Nome_Curso", "Docente_Responsavel",
+            "Designacao_UC", "Docente_Responsavel",
             "Duracao_Minutos", "Numero_Presencas", "Anomalias",
         ] if c in display.columns]
 

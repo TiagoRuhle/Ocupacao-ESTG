@@ -19,6 +19,10 @@ DB_CONFIG: dict = {
     "password": os.getenv("DB_PASSWORD", ""),
     "database": os.getenv("DB_NAME", "dw_ocupacao"),
     "charset": "utf8mb4",
+    # Sem autocommit, cada ligação da pool fica com uma transação aberta depois de um SELECT.
+    # Isso bloqueia o TRUNCATE do cleanup_dw.py (fica à espera para sempre) e faz o dashboard
+    # continuar a mostrar dados antigos depois de o ETL voltar a correr.
+    "autocommit": True,
 }
 
 # TTLs de cache (em segundos) (Time to Live/Tempo de Vida)
@@ -40,9 +44,10 @@ class Omisso:
     BAD_DOCENTES: tuple = ("N/D", "Indefinido/N.D.")
     BAD_UCS: tuple      = ("N/D", "SEM_UNIDADE / RESERVA_ADMIN")
 
-# Autenticação
+# Autenticação — definida no .env (DASHBOARD_USER / DASHBOARD_PASSWORD).
+# Os valores por omissão servem só para desenvolvimento local.
 AUTH_CREDENTIALS: dict[str, str] = {
-    "admin": "estg2025",
+    os.getenv("DASHBOARD_USER", "admin"): os.getenv("DASHBOARD_PASSWORD", "estg2025"),
 }
 
 # Alias para compatibilidade com versões antigas de auth.py que usam AUTH_USERS
@@ -105,6 +110,13 @@ COLORS = {
         "#8B5CF6", "#06B6D4", "#F97316", "#EC4899",
         "#14B8A6", "#84CC16", "#6366F1", "#FB923C",
     ],
+    # Cores com significado fixo — iguais em todas as páginas
+    "periodo": {"Manhã": "#3B63FB", "Tarde": "#F59E0B", "Noite": "#8B5CF6"},
+    # Níveis do mapa de ocupação crítica: diferem também em luminosidade (legíveis por daltónicos)
+    "nivel_baixo":  "#DBEAFE",
+    "nivel_medio":  "#FDBA74",
+    "nivel_alto":   "#B91C1C",
+    "barra_baixa":  "#94A3B8",
     # Paleta para turnos/UCs nos calendários — roda se houver mais UCs do que cores
     "turno_palette": [
         "#3B63FB", "#0EA5E9", "#10B981", "#F59E0B", "#EF4444",

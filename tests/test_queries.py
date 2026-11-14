@@ -19,6 +19,8 @@ import pandas as pd
 from unittest.mock import patch, MagicMock
 from sqlalchemy import create_engine, text
 
+import _db_teste as db_teste
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'streamlit-dashboard'))
 
 # Mock do streamlit — cache_data fica transparente, st.error fica silencioso
@@ -37,16 +39,16 @@ from queries import (
 
 
 # SQLAlchemy — usado apenas para setup/teardown (insert, truncate)
-TEST_DB_URL = "mysql+pymysql://root:@localhost:3306/dw_ocupacao_tests?charset=utf8mb4"
+TEST_DB_URL = db_teste.TEST_DB_URL
 _test_engine = create_engine(TEST_DB_URL, future=True)
 
 # pymysql — usado pelas queries (compatível com o queries.py real)
 TEST_DB_PYMYSQL = {
-    "host":       "localhost",
-    "port":       3306,
-    "user":       "root",
-    "password":   "",
-    "database":   "dw_ocupacao_tests",
+    "host":       db_teste.HOST,
+    "port":       db_teste.PORT,
+    "user":       db_teste.USER,
+    "password":   db_teste.PASSWORD,
+    "database":   db_teste.DB_NAME,
     "charset":    "utf8mb4",
     "autocommit": True,
 }
@@ -230,7 +232,7 @@ class TestGetEtlQualityMetrics:
         insert_minimal_fact()
         with patch('queries.get_connection', side_effect=get_test_connection):
             result = get_metricas_qualidade_etl()
-        assert set(result.keys()) == {'total', 'valid', 'errors'}
+        assert set(result.keys()) == {'total', 'completos', 'incompletos', 'reservas', 'motivos'}
 
     def test_total_correto(self):
         insert_minimal_fact()
@@ -238,16 +240,24 @@ class TestGetEtlQualityMetrics:
             result = get_metricas_qualidade_etl()
         assert result['total'] == 1
 
-    def test_valid_mais_errors_igual_total(self):
+    def test_completos_mais_incompletos_igual_total(self):
         insert_minimal_fact()
         with patch('queries.get_connection', side_effect=get_test_connection):
             result = get_metricas_qualidade_etl()
-        assert result['valid'] + result['errors'] == result['total']
+        assert result['completos'] + result['incompletos'] == result['total']
+
+    def test_motivos_nunca_excedem_total(self):
+        insert_minimal_fact()
+        with patch('queries.get_connection', side_effect=get_test_connection):
+            result = get_metricas_qualidade_etl()
+        assert all(0 <= v <= result['total'] for v in result['motivos'].values())
 
     def test_sem_dados_devolve_zeros(self):
         with patch('queries.get_connection', side_effect=get_test_connection):
             result = get_metricas_qualidade_etl()
-        assert result == {'total': 0, 'valid': 0, 'errors': 0}
+        assert result['total'] == 0
+        assert result['completos'] == 0
+        assert result['incompletos'] == 0
 
 
 # get_tendencia_sessoes_fantasma

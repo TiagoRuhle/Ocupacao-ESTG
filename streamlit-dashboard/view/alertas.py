@@ -8,6 +8,7 @@ from transforms import compute_kpis_gerais
 from components import render_kpi, render_spacer, render_cabecalho_seccao
 from plots import chart_heatmap_critico
 from config import PLOTLY_CONFIG
+from utils import fmt_int, fmt_pct
 
 
 class AlertasProfile(BaseProfile):
@@ -62,10 +63,10 @@ class AlertasProfile(BaseProfile):
             tx_critica = 0
 
         k1, k2, k3, k4 = st.columns(4)
-        with k1: render_kpi("Salas Ocupadas", f"{kpi['espacos_ocupados']:,}", "🏢")
-        with k2: render_kpi("Salas Livres",   f"{espacos_livres:,}", "🟢")
-        with k3: render_kpi("Total Salas",    f"{total_rooms:,}", "📐")
-        with k4: render_kpi("Tx. Crítica",    f"{tx_critica}%", "🔴")
+        with k1: render_kpi("Salas Ocupadas", f"{fmt_int(kpi['espacos_ocupados'])}", "🏢")
+        with k2: render_kpi("Salas Livres",   f"{fmt_int(espacos_livres)}", "🟢")
+        with k3: render_kpi("Total Salas",    f"{fmt_int(total_rooms)}", "📐")
+        with k4: render_kpi("Tx. Crítica",    fmt_pct(tx_critica), "🔴")
 
         render_spacer(1.2)
         render_cabecalho_seccao("Mapa de Ocupação Crítica")
@@ -78,11 +79,12 @@ class AlertasProfile(BaseProfile):
         render_cabecalho_seccao("Slots Críticos")
         if not df_slots.empty:
             df_slots["Nível"] = df_slots["ratio"].apply(
+                # Mesmas cores do mapa: azul-claro (baixa), laranja (média), vermelho (alta)
                 lambda r: "🔴 Alta" if r > high_threshold
-                else "🟡 Média" if r >= low_threshold
-                else "🟢 Baixa"
+                else "🟠 Média" if r >= low_threshold
+                else "🔵 Baixa"
             )
-            df_slots["% Ocupação"] = df_slots["ratio"].round(1).astype(str) + "%"
+            df_slots["% Ocupação"] = df_slots["ratio"].apply(fmt_pct)
             display = (
                 df_slots.sort_values("ratio", ascending=False)
                 [["DiaSemana", "Hora_Inicio", "Salas_Ocupadas", "% Ocupação", "Nível"]]

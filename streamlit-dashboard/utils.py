@@ -6,6 +6,26 @@ from __future__ import annotations
 from config import Omisso
 
 
+def fmt_int(value: float) -> str:
+    """
+    Inteiro com separador de milhares à portuguesa (espaço não separável).
+    Examples: 58261 → "58 261", 0 → "0"
+    """
+    if value is None or value != value:   # NaN guard
+        return "—"
+    return f"{int(round(value)):,}".replace(",", "\u00a0")
+
+
+def fmt_pct(value: float, decimals: int = 1) -> str:
+    """
+    Percentagem com vírgula decimal.
+    Examples: 67.3 → "67,3%", 15 → "15,0%"
+    """
+    if value is None or value != value:
+        return "—"
+    return f"{value:.{decimals}f}%".replace(".", ",")
+
+
 def fmt_duracao(minutes: float) -> str:
     """
     Convert a minute count to a human-readable string.

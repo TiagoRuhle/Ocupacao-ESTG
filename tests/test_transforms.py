@@ -224,17 +224,17 @@ class TestCombineAnomalyFlags:
     def test_ghost_flag(self):
         row = pd.Series({'Ghost_Flag': 'Ghost', 'UC_Flag': None, 'Curso_Flag': None, 'Resp_Flag': None})
         result = combine_flags_anomalia(row)
-        assert '👻 Ghost' in result
+        assert '👻 Sem presenças' in result
 
     def test_uc_flag(self):
         row = pd.Series({'Ghost_Flag': None, 'UC_Flag': 'Unmapped_UC', 'Curso_Flag': None, 'Resp_Flag': None})
         result = combine_flags_anomalia(row)
         assert '📚 UC N/D' in result
 
-    def test_curso_flag(self):
+    def test_curso_nao_e_anomalia(self):
+        # O dicionário de cursos não fez parte dos dados fornecidos: curso N/D não é anomalia
         row = pd.Series({'Ghost_Flag': None, 'UC_Flag': None, 'Curso_Flag': 'Unmapped_Curso', 'Resp_Flag': None})
-        result = combine_flags_anomalia(row)
-        assert '🎓 Curso N/D' in result
+        assert combine_flags_anomalia(row) == '—'
 
     def test_resp_flag(self):
         row = pd.Series({'Ghost_Flag': None, 'UC_Flag': None, 'Curso_Flag': None, 'Resp_Flag': 'Unmapped_Resp'})
@@ -244,7 +244,7 @@ class TestCombineAnomalyFlags:
     def test_multiplas_flags(self):
         row = pd.Series({'Ghost_Flag': 'Ghost', 'UC_Flag': 'Unmapped_UC', 'Curso_Flag': None, 'Resp_Flag': None})
         result = combine_flags_anomalia(row)
-        assert '👻 Ghost' in result
+        assert '👻 Sem presenças' in result
         assert '📚 UC N/D' in result
         assert '|' in result
 
@@ -256,7 +256,7 @@ class TestCombineAnomalyFlags:
             'Resp_Flag':  'Unmapped_Resp',
         })
         result = combine_flags_anomalia(row)
-        assert '👻 Ghost' in result
+        assert '👻 Sem presenças' in result
         assert '📚 UC N/D' in result
-        assert '🎓 Curso N/D' in result
+        assert '🎓 Curso N/D' not in result
         assert '👤 Resp. N/D' in result

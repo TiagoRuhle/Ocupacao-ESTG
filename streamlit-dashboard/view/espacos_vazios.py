@@ -5,7 +5,7 @@ from models import Filters
 from view.base import BaseProfile
 from queries import get_salas_livres_por_intervalo, get_contagem_salas_filtradas
 from components import render_kpi, render_spacer
-from utils import pct
+from utils import pct, fmt_int, fmt_pct
 
 
 class EspacosVaziosProfile(BaseProfile):
@@ -53,10 +53,10 @@ class EspacosVaziosProfile(BaseProfile):
         tx_disponibilidade = round(pct(vazias_count, total_rooms), 1)
 
         k1, k2, k3, k4 = st.columns(4)
-        with k1: render_kpi("Salas Vazias",     f"{vazias_count:,}", "🟢")
-        with k2: render_kpi("Salas Ocupadas",   f"{ocupadas_count:,}", "🏢")
-        with k3: render_kpi("Total de Espaços", f"{total_rooms:,}", "📐")
-        with k4: render_kpi("Disponibilidade",  f"{tx_disponibilidade}%", "📊")
+        with k1: render_kpi("Salas Vazias",     f"{fmt_int(vazias_count)}", "🟢")
+        with k2: render_kpi("Salas Ocupadas",   f"{fmt_int(ocupadas_count)}", "🏢")
+        with k3: render_kpi("Total de Espaços", f"{fmt_int(total_rooms)}", "📐")
+        with k4: render_kpi("Disponibilidade",  fmt_pct(tx_disponibilidade), "📊")
 
         render_spacer(1.5)
         data_pt = search_date.strftime("%d/%m/%Y")

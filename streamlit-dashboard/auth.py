@@ -1,5 +1,6 @@
 import os
 import base64
+import hmac
 import streamlit as st
 from config import AUTH_USERS
 
@@ -53,7 +54,9 @@ def pagina_login():
             submitted = st.form_submit_button("Entrar", use_container_width=True)
 
             if submitted:
-                if username in AUTH_USERS and AUTH_USERS[username] == password:
+                # compare_digest compara em tempo constante (não revela a password por tempos de resposta)
+                esperada = AUTH_USERS.get(username)
+                if esperada is not None and hmac.compare_digest(esperada.encode(), password.encode()):
                     st.session_state["authenticated"] = True
                     st.session_state["username"]      = username
                     # Esconde o form antes do rerun para evitar o flash

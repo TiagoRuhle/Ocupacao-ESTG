@@ -92,17 +92,20 @@ class Testterminar_sessao:
 
 class TestAuthCredentials:
 
+    # As credenciais vêm do .env (DASHBOARD_USER / DASHBOARD_PASSWORD), com admin/estg2025 por omissão
+
     def test_admin_existe(self):
         from config import AUTH_USERS
-        assert "admin" in AUTH_USERS
+        assert os.getenv("DASHBOARD_USER", "admin") in AUTH_USERS
 
     def test_password_admin_correta(self):
         from config import AUTH_USERS
-        assert AUTH_USERS["admin"] == "estg2025"
+        utilizador = os.getenv("DASHBOARD_USER", "admin")
+        assert AUTH_USERS[utilizador] == os.getenv("DASHBOARD_PASSWORD", "estg2025")
 
     def test_credencial_errada_nao_autentica(self):
         from config import AUTH_USERS
-        assert AUTH_USERS.get("admin") != "password_errada"
+        assert AUTH_USERS.get(os.getenv("DASHBOARD_USER", "admin")) != "password_errada"
 
     def test_utilizador_inexistente(self):
         from config import AUTH_USERS

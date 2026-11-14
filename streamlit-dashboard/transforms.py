@@ -80,10 +80,14 @@ def build_dados_heatmap(df: pd.DataFrame) -> pd.DataFrame:
 
 def combine_flags_anomalia(row: pd.Series) -> str:
     # Constrói uma string legível com as anomalias detetadas para uma linha de factos
+    # pd.notna em vez de "if valor": um NaN é verdadeiro em Python e marcava anomalias inexistentes
+    def ativo(col: str) -> bool:
+        valor = row.get(col)
+        return valor is not None and bool(pd.notna(valor)) and valor != ""
+
     flags = []
-    if row.get("Ghost_Flag"):  flags.append("👻 Ghost")
-    if row.get("UC_Flag"):     flags.append("📚 UC N/D")
-    if row.get("Curso_Flag"):  flags.append("🎓 Curso N/D")
-    if row.get("Resp_Flag"):   flags.append("👤 Resp. N/D")
-    if row.get("Hora_Flag"):   flags.append("🌙 Horário Invulgar")
+    if ativo("Ghost_Flag"):  flags.append("👻 Sem presenças")
+    if ativo("UC_Flag"):     flags.append("📚 UC N/D")
+    if ativo("Resp_Flag"):   flags.append("👤 Resp. N/D")
+    if ativo("Hora_Flag"):   flags.append("🌙 Horário Invulgar")
     return " | ".join(flags) if flags else "—"

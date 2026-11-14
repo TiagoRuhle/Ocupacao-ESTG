@@ -39,7 +39,9 @@ from plots import (
     chart_tendencia_anomalias,
     chart_calendario_mensal,
     chart_heatmap_critico,
+    chart_motivos_qualidade,
     chart_tendencia_comparacao,
+    chart_sessoes_por_sala,
     chart_calendario_dia,
     chart_calendario_semana,
     chart_calendario_mes,
@@ -262,6 +264,32 @@ class TestChartMonthlyCalendar:
         assert isinstance(chart_calendario_mensal(pd.DataFrame(), 2024, 10), go.Figure)
 
 
+# chart_motivos_qualidade
+
+class TestChartMotivosQualidade:
+
+    def test_devolve_figure(self):
+        fig = chart_motivos_qualidade({"UC em falta": 10, "Responsável indefinido": 5}, total=100)
+        assert isinstance(fig, go.Figure)
+        assert len(fig.data) == 1
+
+    def test_sem_motivos_devolve_figure_vazia(self):
+        fig = chart_motivos_qualidade({"UC em falta": 0}, total=100)
+        assert isinstance(fig, go.Figure)
+        assert len(fig.data) == 0
+
+    def test_total_zero_devolve_figure(self):
+        assert isinstance(chart_motivos_qualidade({}, total=0), go.Figure)
+
+
+class TestBottomEspacosHoras:
+
+    def test_ordena_por_horas(self, df_ocupacao):
+        fig = chart_bottom_espacos(df_ocupacao, 10)
+        # SALA B tem 120 min (2 h) e SALA A tem 210 min (3,5 h): SALA B é a menos ocupada
+        assert list(fig.data[0].customdata) == ['SALA B', 'SALA A']
+
+
 # chart_heatmap_critico
 
 class TestChartCriticalHeatmap:
@@ -274,6 +302,26 @@ class TestChartCriticalHeatmap:
 
     def test_total_rooms_zero_devolve_figure(self, df_slot):
         assert isinstance(chart_heatmap_critico(df_slot, total_rooms=0), go.Figure)
+
+
+# chart_sessoes_por_sala
+
+class TestChartSessoesPorSala:
+
+    def test_devolve_figure(self, df_ocupacao):
+        assert isinstance(chart_sessoes_por_sala(df_ocupacao), go.Figure)
+
+    def test_vazio_devolve_figure(self):
+        assert isinstance(chart_sessoes_por_sala(pd.DataFrame()), go.Figure)
+
+
+class TestTendenciaSemanal:
+
+    def test_semanas_sem_aulas_ficam_a_zero(self):
+        df = pd.DataFrame({'DataCompleta': pd.to_datetime(['2025-12-15', '2026-01-05'])})
+        fig = chart_tendencia_comparacao({"SALA A": df})
+        # 15/12, 22/12, 29/12 e 05/01: as duas semanas do meio aparecem com 0
+        assert list(fig.data[0].y) == [1, 0, 0, 1]
 
 
 # chart_tendencia_comparacao
