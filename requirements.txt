@@ -1,0 +1,4 @@
+# Dependências do pipeline ETL, do dashboard e dos testes.
+# O pipeline ETL usa um subconjunto das dependências do dashboard.
+-r streamlit-dashboard/requirements.txt
+pytest>=8.0

@@ -15,8 +15,9 @@ __pycache__/
 # Logs
 *.log
 
-# Documentation
-docs/
+# Documentação (só as capturas de ecrã do README são versionadas)
+docs/*
+!docs/screenshots/
 
 # Include the schema file 
 !database/schema_dw.sql

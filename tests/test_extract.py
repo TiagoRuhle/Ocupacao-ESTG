@@ -160,9 +160,9 @@ class TestExtractCsv:
     def test_todas_colunas_dtype_str(self, extractor, tmp_data_dir):
         write_file(tmp_data_dir / "test.csv", "id,valor\n1,100\n2,200")
         df = extractor.extract_csv("test.csv")
-        # dtype=str — todas as colunas devem ser object (string)
+        # dtype=str — todas as colunas devem ser texto (object no pandas 2, StringDtype no pandas 3)
         for col in df.columns:
-            assert df[col].dtype == object
+            assert pd.api.types.is_string_dtype(df[col])
 
     def test_encoding_latin1(self, extractor, tmp_data_dir):
         content = "nome\nSALA Ã\n"

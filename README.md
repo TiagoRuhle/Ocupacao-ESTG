@@ -1,8 +1,43 @@
 # Pipeline ETL e Dashboard BI — Análise de Ocupação ESTG
 
+[![CI](https://github.com/TiagoRuhle/Ocupacao-ESTG/actions/workflows/ci.yml/badge.svg)](https://github.com/TiagoRuhle/Ocupacao-ESTG/actions/workflows/ci.yml)
+
 ## Visão Geral
 
 Sistema de Extração, Transformação e Carregamento (ETL) para um Data Warehouse dimensional que suporta a análise de ocupação de espaços letivos da Escola Superior de Tecnologia e Gestão (ESTG). O pipeline processa dados brutos de agendamentos e assiduidade académica, materializando-os num modelo Star Schema em MySQL. Uma camada de Business Intelligence baseada em Streamlit disponibiliza visualizações interativas sobre os dados carregados.
+
+![Visão geral do dashboard](docs/screenshots/visao-geral.png)
+
+## Capturas de ecrã
+
+| Detalhe de uma sala | Alertas |
+|---|---|
+| ![Calendário de ocupação de uma sala](docs/screenshots/detalhe-sala.png) | ![Deteção de sessões fantasma](docs/screenshots/alertas.png) |
+
+| Comparação de salas | Qualidade dos dados |
+|---|---|
+| ![Comparação entre salas](docs/screenshots/comparacao.png) | ![Monitorização da qualidade dos dados](docs/screenshots/qualidade.png) |
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+    subgraph Fontes
+        A["PorSalaTurno.csv"]
+        B["PorTurnoPresencas.csv"]
+        C["curso_ucs.csv"]
+        D["Dump SQL<br/>(responsáveis)"]
+    end
+
+    subgraph ETL["Pipeline ETL (Python + pandas)"]
+        E[Extract] --> T[Transform<br/>regras de qualidade] --> L[Load<br/>SCD1 / SCD2]
+    end
+
+    A & B & C & D --> E
+    L --> DW[("MySQL<br/>Star Schema<br/>dw_ocupacao")]
+    DW --> S["Dashboard Streamlit<br/>7 páginas"]
+    S --> U([Utilizador])
+```
 
 ## Enquadramento e Autores
 
@@ -21,29 +56,19 @@ Projeto realizado no âmbito do **Projeto Final de Curso** da Licenciatura em En
 - MySQL Server 8.0+
 - pip
 
-### Dependências do pipeline ETL
+### Dependências
+
+Um único comando instala as dependências do pipeline ETL, do dashboard e dos testes:
 
 ```bash
-pip install pandas sqlalchemy pymysql python-dotenv numpy
-```
-
-### Dependências do dashboard
-
-```bash
-pip install -r streamlit-dashboard/requirements.txt
-```
-
-### Dependências dos testes
-
-```bash
-pip install pytest
+pip install -r requirements.txt
 ```
 
 ---
 
 ## Configuração de Credenciais
 
-Copiar `.env.example` para `.env` na raiz do repositório e preencher com as credenciais MySQL:
+Copiar `.env.example` para `.env` na raiz do repositório e preencher a password do MySQL:
 
 ```
 DB_HOST=localhost
@@ -51,15 +76,21 @@ DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=<password>
 DB_NAME=dw_ocupacao
+
+DADOS_PATH=processo_etl/Dados
+FILE_AGENDAMENTOS=PorSalaTurno.csv
+FILE_PRESENCAS=PorTurnoPresencas.csv
+FILE_CURSOS=curso_ucs(in).csv
+FILE_TURNOS_SQL=script_espacos_salas_turnos.sql
 ```
 
-O mesmo ficheiro `.env` é utilizado pelo pipeline ETL e pelo dashboard.
+O mesmo ficheiro `.env` é utilizado pelo pipeline ETL e pelo dashboard. As variáveis `DADOS_PATH` e `FILE_*` indicam onde estão os ficheiros de origem.
 
 ---
 
 ## Dados de Entrada
 
-O pipeline espera os seguintes ficheiros no diretório `processo_etl/Dados/`:
+O pipeline espera os seguintes ficheiros no diretório indicado em `DADOS_PATH` (por omissão, `processo_etl/Dados/`):
 
 | Ficheiro | Descrição | Encoding | Separador |
 |---|---|---|---|
@@ -67,6 +98,8 @@ O pipeline espera os seguintes ficheiros no diretório `processo_etl/Dados/`:
 | `PorTurnoPresencas.csv` | Registo de assiduidade académica | `cp1252` | `,` |
 | `curso_ucs(in).csv` | Dicionário mestre de cursos e UCs | `latin-1` | `;` |
 | `script_espacos_salas_turnos.sql` | Dump SQL com metadados de responsáveis | `utf-8` | — |
+
+> Os dados de origem são institucionais e **não estão incluídos no repositório**.
 
 ---
 
@@ -79,7 +112,7 @@ O pipeline espera os seguintes ficheiros no diretório `processo_etl/Dados/`:
 Aplicar o script DDL ao servidor MySQL para criar a base de dados e todas as tabelas:
 
 ```bash
-mysql -u root -p < schema_dw.sql
+mysql -u root -p < database/schema_dw.sql
 ```
 
 Este script cria a base de dados `dw_ocupacao` com o modelo Star Schema completo — dimensões, tabela de factos, colunas de controlo SCD2 (`Valid_From`, `Valid_To`, `Is_Active`) e chaves estrangeiras da `Facto_Ocupacao`.
@@ -98,7 +131,7 @@ Desta forma a `dw_ocupacao_tests` fica sempre com o mesmo schema que a `dw_ocupa
 Antes de inserir qualquer dado, correr os testes para confirmar que o schema foi criado corretamente e que a lógica de carregamento funciona como esperado:
 
 ```bash
-pytest tests/test_extract.py tests/test_transform.py tests/test_load.py tests/test_plots.py -v
+pytest tests/ -v
 ```
 
 Estes testes cobrem:
@@ -107,8 +140,11 @@ Estes testes cobrem:
 - **`test_transform.py`** — regras de negócio, geração das dimensões de data e hora, classificação de espaços e épocas, pipeline de transformação completo
 - **`test_load.py`** — ligação à BD de teste, inserção de dimensões SCD1/SCD2, integridade dos registos dummy SK=0, carregamento da tabela de factos
 - **`test_plots.py`** — correção estrutural de todos os gráficos do dashboard (retornam sempre um `go.Figure`, incluindo com dados vazios)
+- **`test_transforms.py`** — normalização de datas e docentes no dashboard
+- **`test_queries.py`** — queries do dashboard contra a base de dados de teste
+- **`test_auth.py`** — sessão de autenticação do dashboard
 
-> Os testes de `test_load.py` e `test_queries.py` requerem ligação ao MySQL com a base de dados `dw_ocupacao_tests` criada no passo anterior. Os testes de `test_extract.py`, `test_transform.py` e `test_plots.py` são puramente unitários e não precisam de base de dados.
+> Os testes de `test_load.py` e `test_queries.py` requerem ligação ao MySQL com a base de dados `dw_ocupacao_tests` criada no passo anterior. Os restantes são puramente unitários, não precisam de base de dados e correm automaticamente no GitHub Actions em cada push.
 
 **Só avançar para o passo seguinte se todos os testes passarem.**
 
@@ -146,7 +182,7 @@ O sistema produz registos de auditoria no terminal com volumes processados e mé
 streamlit run streamlit-dashboard/main.py
 ```
 
-Inicia a interface BI no browser. As credenciais predefinidas são `admin/estg2025` ou `docente/estg2025`.
+Inicia a interface BI no browser. As credenciais predefinidas são `admin` / `estg2025`.
 
 O dashboard disponibiliza sete páginas:
 
