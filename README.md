@@ -12,11 +12,25 @@ Sistema de Extração, Transformação e Carregamento (ETL) para um Data Warehou
 
 | Detalhe de uma sala | Alertas |
 |---|---|
-| ![Calendário de ocupação de uma sala](docs/screenshots/detalhe-sala.png) | ![Deteção de sessões fantasma](docs/screenshots/alertas.png) |
+| ![KPIs e mapas de ocupação semanal e mensal de uma sala](docs/screenshots/detalhe-sala.png) | ![Mapa de ocupação crítica por dia e hora](docs/screenshots/alertas.png) |
 
 | Comparação de salas | Qualidade dos dados |
 |---|---|
-| ![Comparação entre salas](docs/screenshots/comparacao.png) | ![Monitorização da qualidade dos dados](docs/screenshots/qualidade.png) |
+| ![Tabela comparativa e sessões por sala](docs/screenshots/comparacao.png) | ![Completude dos registos e motivos de dados em falta](docs/screenshots/qualidade.png) |
+
+<details>
+<summary>Calendário semanal de uma sala</summary>
+
+![Calendário semanal de horários de uma sala](docs/screenshots/detalhe-sala-calendario.png)
+
+</details>
+
+<details>
+<summary>Tendência semanal comparativa</summary>
+
+![Sessões por semana em várias salas](docs/screenshots/comparacao-tendencia.png)
+
+</details>
 
 ## Arquitetura
 
@@ -41,12 +55,14 @@ flowchart LR
 
 ## Enquadramento e Autores
 
-Projeto realizado no âmbito do **Projeto Final de Curso** da Licenciatura em Engenharia Informática da Escola Superior de Tecnologia e Gestão (ESTG), Politécnico de Leiria.
+Projeto realizado no âmbito da unidade curricular de **Projeto Informático** da Licenciatura em Engenharia Informática da Escola Superior de Tecnologia e Gestão (ESTG), Politécnico de Leiria, em 2025/2026.
 
 **Autores:**
 
-- Tiago
-- André
+- Tiago Alexander de Oliveira Ruhle — [@TiagoRuhle](https://github.com/TiagoRuhle)
+- André dos Santos Clérigo
+
+**Orientação:** Professora Doutora Rosa Isabel Alves Cordeiro Matias e Professora Doutora Maria Beatriz Guerra da Piedade
 
 ---
 
@@ -77,6 +93,9 @@ DB_USER=root
 DB_PASSWORD=<password>
 DB_NAME=dw_ocupacao
 
+DASHBOARD_USER=admin
+DASHBOARD_PASSWORD=estg2025
+
 DADOS_PATH=processo_etl/Dados
 FILE_AGENDAMENTOS=PorSalaTurno.csv
 FILE_PRESENCAS=PorTurnoPresencas.csv
@@ -84,7 +103,7 @@ FILE_CURSOS=curso_ucs(in).csv
 FILE_TURNOS_SQL=script_espacos_salas_turnos.sql
 ```
 
-O mesmo ficheiro `.env` é utilizado pelo pipeline ETL e pelo dashboard. As variáveis `DADOS_PATH` e `FILE_*` indicam onde estão os ficheiros de origem.
+O mesmo ficheiro `.env` é utilizado pelo pipeline ETL, pelo dashboard e pelos testes. As variáveis `DADOS_PATH` e `FILE_*` indicam onde estão os ficheiros de origem; `DASHBOARD_USER` e `DASHBOARD_PASSWORD` definem o login do dashboard. Os testes de integração usam as mesmas credenciais MySQL (ou `TEST_DB_USER` / `TEST_DB_PASSWORD`, se definidas).
 
 ---
 
@@ -100,6 +119,8 @@ O pipeline espera os seguintes ficheiros no diretório indicado em `DADOS_PATH` 
 | `script_espacos_salas_turnos.sql` | Dump SQL com metadados de responsáveis | `utf-8` | — |
 
 > Os dados de origem são institucionais e **não estão incluídos no repositório**.
+>
+> Os dados fornecidos não incluíam a correspondência entre as UCs agendadas e os respetivos cursos, por isso a maioria das aulas fica com o curso `N/D`. Não é um erro do pipeline: a métrica de completude da página **Qualidade** não conta o curso.
 
 ---
 
@@ -143,6 +164,7 @@ Estes testes cobrem:
 - **`test_transforms.py`** — normalização de datas e docentes no dashboard
 - **`test_queries.py`** — queries do dashboard contra a base de dados de teste
 - **`test_auth.py`** — sessão de autenticação do dashboard
+- **`test_utils_formato.py`** — formatação de números à portuguesa (`58 261`, `67,3%`)
 
 > Os testes de `test_load.py` e `test_queries.py` requerem ligação ao MySQL com a base de dados `dw_ocupacao_tests` criada no passo anterior. Os restantes são puramente unitários, não precisam de base de dados e correm automaticamente no GitHub Actions em cada push.
 
@@ -182,19 +204,19 @@ O sistema produz registos de auditoria no terminal com volumes processados e mé
 streamlit run streamlit-dashboard/main.py
 ```
 
-Inicia a interface BI no browser. As credenciais predefinidas são `admin` / `estg2025`.
+Inicia a interface BI no browser. As credenciais predefinidas são `admin` / `estg2025` e podem ser alteradas no `.env` (`DASHBOARD_USER` e `DASHBOARD_PASSWORD`).
 
 O dashboard disponibiliza sete páginas:
 
 | Página | Descrição |
 |---|---|
-| **Visão Geral** | KPIs, série temporal de ocupação, distribuição por edifício, tabela de ocupações recentes e métricas de qualidade |
-| **Laboratórios** | Vista filtrada exclusivamente para espaços do tipo laboratório |
-| **Detalhe Sala** | Análise aprofundada por edifício e espaço, com calendário diário, semanal e mensal |
-| **Salas Vazias** | Identificação de espaços sem registo de ocupação no período selecionado |
-| **Alertas** | Deteção de anomalias e sessões fantasma (ghost sessions) |
-| **Comparação** | Sobreposição de tendências de ocupação entre várias salas |
-| **Qualidade** | Monitorização da qualidade dos dados carregados pelo pipeline ETL |
+| **Visão Geral** | KPIs, ocupação por edifício e categoria, período do dia, tipo de atividade, espaços mais e menos ocupados e série temporal |
+| **Laboratórios** | Vista filtrada exclusivamente para espaços do tipo laboratório, com mapa de calor por hora |
+| **Detalhe Sala** | Análise de um espaço: KPIs, mapas de ocupação semanal e mensal e calendário diário, semanal e mensal |
+| **Salas Vazias** | Espaços livres num dia e intervalo de horas escolhidos |
+| **Alertas** | Mapa de ocupação crítica por dia e hora, com limites ajustáveis, e lista dos horários mais carregados |
+| **Comparação** | Tabela comparativa, sessões por sala e tendência semanal de várias salas |
+| **Qualidade** | Completude dos registos, motivos de dados em falta, sessões sem presenças e registo de auditoria |
 
 ---
 
