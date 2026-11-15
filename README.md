@@ -1,4 +1,4 @@
-# Pipeline ETL e Dashboard BI — Análise de Ocupação ESTG
+# Pipeline ETL e Dashboard BI - Análise de Ocupação ESTG
 
 [![CI](https://github.com/TiagoRuhle/Ocupacao-ESTG/actions/workflows/ci.yml/badge.svg)](https://github.com/TiagoRuhle/Ocupacao-ESTG/actions/workflows/ci.yml)
 
@@ -128,7 +128,7 @@ O pipeline espera os seguintes ficheiros no diretório indicado em `DADOS_PATH` 
 
 > **Atenção:** Todos os comandos devem ser executados a partir da raiz do repositório.
 
-### Passo 1 — Criar o Data Warehouse
+### Passo 1 - Criar o Data Warehouse
 
 Aplicar o script DDL ao servidor MySQL para criar a base de dados e todas as tabelas:
 
@@ -147,7 +147,7 @@ mysqldump -u root -p --no-data dw_ocupacao | mysql -u root -p dw_ocupacao_tests
 
 Desta forma a `dw_ocupacao_tests` fica sempre com o mesmo schema que a `dw_ocupacao`, sem ter de aplicar o DDL duas vezes.
 
-### Passo 2 — Validar o Schema com Testes
+### Passo 2 - Validar o Schema com Testes
 
 Antes de inserir qualquer dado, correr os testes para confirmar que o schema foi criado corretamente e que a lógica de carregamento funciona como esperado:
 
@@ -170,7 +170,7 @@ Estes testes cobrem:
 
 **Só avançar para o passo seguinte se todos os testes passarem.**
 
-### Passo 3 — Limpar o Data Warehouse
+### Passo 3 - Limpar o Data Warehouse
 
 Antes da primeira carga (ou para reiniciar), executar o utilitário de limpeza:
 
@@ -184,7 +184,7 @@ Este utilitário executa as seguintes operações:
 2. Trunca todas as tabelas dinâmicas
 3. Reinsere os registos dummy com Surrogate Key igual a zero em todas as dimensões
 
-### Passo 4 — Executar o Pipeline ETL
+### Passo 4 - Executar o Pipeline ETL
 
 ```bash
 python processo_etl/main.py
@@ -198,7 +198,7 @@ O orquestrador coordena sequencialmente três fases:
 
 O sistema produz registos de auditoria no terminal com volumes processados e métricas de integridade das Surrogate Keys. Os logs são também guardados em `processo_etl/dumpETL_<timestamp>.log`.
 
-### Passo 5 — Lançar o Dashboard
+### Passo 5 - Lançar o Dashboard
 
 ```bash
 streamlit run streamlit-dashboard/main.py
